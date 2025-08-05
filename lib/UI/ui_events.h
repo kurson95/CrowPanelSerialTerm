@@ -10,8 +10,6 @@
 extern "C" {
 #endif
 
-void SerialWrite(lv_event_t * e);
-void SetupSerial(lv_event_t * e);
 void disconnectWiFi(lv_event_t * e);
 void connectWiFi(lv_event_t * e);
 

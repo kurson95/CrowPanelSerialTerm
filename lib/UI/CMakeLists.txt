@@ -1,5 +1,4 @@
-SET(SOURCES ui_serialTerm.c
-    ui_WifiSettings.c
+SET(SOURCES ui_WifiSettings.c
     ui_theme_manager.c
     ui_themes.c
     ui.c
@@ -8,8 +7,15 @@ SET(SOURCES ui_serialTerm.c
     ui_events.c
     ui_img_backblue800x480_png.c
     ui_img_1149142576.c
-    ui_img_1659073291.c
     ui_img_wifiapp_png.c
-    ui_img_548092219.c)
+    ui_img_548092219.c
+    ui_img_back_png.c
+    ui_img_home_png.c
+    ui_img_197579651.c
+    ui_img_1156566852.c
+    ui_img_376556310.c
+    ui_img_1659073291.c
+    ui_img_1845835166.c
+    ui_img_wifi_png.c)
 
 add_library(ui ${SOURCES})

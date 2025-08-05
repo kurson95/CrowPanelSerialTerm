@@ -17,25 +17,28 @@ extern "C" {
 #include "ui_theme_manager.h"
 #include "ui_themes.h"
 
-
 ///////////////////// SCREENS ////////////////////
-
-#include "ui_serialTerm.h"
 #include "ui_WifiSettings.h"
 
 ///////////////////// VARIABLES ////////////////////
-
+extern lv_anim_t * keyboard_Animation(lv_obj_t * TargetObject, int delay);
 
 // EVENTS
-
 extern lv_obj_t * ui____initial_actions0;
 
 // IMAGES AND IMAGE SETS
 LV_IMG_DECLARE(ui_img_backblue800x480_png);    // assets/backBlue800x480.png
 LV_IMG_DECLARE(ui_img_1149142576);    // assets/wifi-slash.png
-LV_IMG_DECLARE(ui_img_1659073291);    // assets/square-terminal.png
 LV_IMG_DECLARE(ui_img_wifiapp_png);    // assets/wifiapp.png
 LV_IMG_DECLARE(ui_img_548092219);    // assets/wifi-connection.png
+LV_IMG_DECLARE(ui_img_back_png);    // assets/back.png
+LV_IMG_DECLARE(ui_img_home_png);    // assets/home.png
+LV_IMG_DECLARE(ui_img_197579651);    // assets/humidity-64.png
+LV_IMG_DECLARE(ui_img_1156566852);    // assets/management-service.png
+LV_IMG_DECLARE(ui_img_376556310);    // assets/no-wifi.png
+LV_IMG_DECLARE(ui_img_1659073291);    // assets/square-terminal.png
+LV_IMG_DECLARE(ui_img_1845835166);    // assets/temperature-control-64.png
+LV_IMG_DECLARE(ui_img_wifi_png);    // assets/wifi.png
 
 // UI INIT
 void ui_init(void);

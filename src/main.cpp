@@ -9,13 +9,16 @@
 #include <stdbool.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
-
+#include <WiFi.h>
 #include "ui.h"
 #include <log.h>
-
+#include <Preferences.h>
+Preferences preferences;
 /* Expand IO */
 #include <TCA9534.h>
 TCA9534 ioex;
+  static bool ioex_ready = false;
+
 Stream *uart = &Serial; // Default to Serial
 String serialBuffer = "";
 LGFX gfx;
@@ -23,7 +26,13 @@ LGFX gfx;
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t *buf;
 static lv_color_t *buf1;
-
+bool terminal_screen_active;
+const long dimTime = 30000; // 30 seconds
+//  Time to dim the screen after last touch
+//  If the screen is touched, it will reset the timer
+//  If the screen is not touched for this time, it will dim the screen
+//  If the screen is touched again, it will reset the timer and brighten the screen
+unsigned long lastTouchTime = 0; // Time when the screen was last touched
 uint16_t touch_x, touch_y;
 
 //  Display refresh
@@ -51,6 +60,8 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
   bool touched = gfx.getTouch(&touch_x, &touch_y);
   if (touched)
   {
+    //  If the screen is touched, reset the last touch time
+    lastTouchTime = millis();
     data->state = LV_INDEV_STATE_PR;
 
     //  Set coordinates
@@ -98,59 +109,54 @@ void sendI2CCommand(uint8_t command)
 }
 void connectWiFi(lv_event_t *e)
 {
-  // Your code here
+  //lv_obj_clear_flag(ui_ConnPopup, LV_OBJ_FLAG_HIDDEN);
+  WiFi.mode(WIFI_STA);                                  // Set WiFi mode to Station
+  const char *ssid = lv_textarea_get_text(ui_SSID);     // Get SSID from the UI text area
+  const char *password = lv_textarea_get_text(ui_PASS); // Get password from the UI text area
+  Serial.printf("Connecting to WiFi SSID: %s, Password: %s\n", ssid, password);
+  WiFi.begin(ssid, password); // Connect to the WiFi network
+  Serial.println("Initializing WiFi...");
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  {
+    delay(500);
+    lv_label_set_text(ui_ConnectionStat, "Connecting...");
+    attempts++;
+  }
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("WiFi not connected");
+    lv_label_set_text(ui_wifistr, "Offline");
+    lv_img_set_src(ui_wifistat, &ui_img_1149142576);
+  }
+  else
+  {
+    String wifi = WiFi.SSID();
+    String ip = WiFi.localIP().toString();
+    lv_label_set_text(ui_wifistr, ip.c_str());
+    lv_label_set_text(ui_NetConn, wifi.c_str());
+    lv_img_set_src(ui_wifistat, &ui_img_wifi_png);
+    preferences.begin("wifi-config", false);
+    preferences.putString("ssid", ssid);
+    preferences.putString("pass", password);
+    preferences.end();
+    Serial.println("Connected to WiFi.");
+  }
+      lv_obj_add_flag(ui_ConnPopup, LV_OBJ_FLAG_HIDDEN); // Ukryj popup
+
 }
 void disconnectWiFi(lv_event_t *e)
 {
   // Your code here
 }
-void SetupSerial(lv_event_t *e)
-{
-  uart->flush(); // Clear any previous data in the serial buffer
-  uart->end(); // End the current serial connection
-  int BaudRate = 115200;
-  int serialPort = 0;
-  char BaudRateChar[10];
-  lv_dropdown_get_selected_str(ui_baudrate, BaudRateChar, sizeof(BaudRateChar));
-  serialPort = (int)lv_dropdown_get_selected(ui_serialset);
-  String baudrateStr = String(BaudRateChar);
-  BaudRate = baudrateStr.toInt();
-  switch (serialPort)
-  {
-  case 0: // Serial
-    uart = &Serial;
-    /* code */
-    break;
-  case 1: // Serial1
-    uart = &Serial1;
-    /* code */
-    break;
-  case 2: // Serial2
-    uart = &Serial2;
-    /* code */
-    break;
-  default:
-    uart = &Serial;
 
-    break;
-  }
-  uart->begin(BaudRate);
-}
-void SerialWrite(lv_event_t *e)
-{
-  const char *text = lv_textarea_get_text(ui_Input);
-  // text+= '\n';
-  if (uart)
-  {
-    uart->println(text);
-  }
-  lv_textarea_set_text(ui_Input, "");
-
-  // Your code here
-}
 void setup()
+
 {
-  uart->begin(115200);
+    WiFi.mode(WIFI_STA);
+
+  uart = &Serial; // Default to Serial
+  static_cast<HardwareSerial *>(uart)->begin(115200);
 
 // Initialize PSRAM and set clock
 #if CONFIG_SPIRAM_SUPPORT
@@ -230,6 +236,8 @@ void setup()
     ioex.output(2, TCA9534::Level::H);
     delay(100);
     pinMode(1, INPUT);
+    ioex_ready = true;
+
     /*end*/
   }
 
@@ -270,6 +278,37 @@ void setup()
   ui_init();
 
   uart->println("Setup done");
+    preferences.begin("wifi-config", false);
+  String saved_ssid = preferences.getString("ssid", "");
+  String saved_pass = preferences.getString("pass", "");
+
+  WiFi.begin(saved_ssid, saved_pass); // Set WiFi mode to Station
+  Serial.printf("Connecting to WiFi SSID: %s, Password: %s\n", saved_ssid.c_str(), saved_pass.c_str());
+  preferences.end();
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  {
+    delay(500);
+    lv_label_set_text(ui_wifistr, "Connecting...");
+    attempts++;
+  }
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("WiFi not connected");
+    lv_label_set_text(ui_wifistr, "Offline");
+    lv_img_set_src(ui_wifistat, &ui_img_1149142576);
+  }
+  else
+  {
+    String wifi = WiFi.SSID();
+    String ip = WiFi.localIP().toString();
+    lv_label_set_text(ui_wifistr, ip.c_str());
+    lv_label_set_text(ui_NetConn, wifi.c_str());
+    lv_img_set_src(ui_wifistat, &ui_img_wifi_png);
+
+    Serial.println("Connected to WiFi.");
+  }
+
 }
 
 // void print_psram_clk() {
@@ -280,26 +319,38 @@ void setup()
 
 void loop()
 {
+  // Sprawdzaj tylko co 500ms, żeby nie przeciążać I2C
+  static unsigned long last_check = 0;
+  if (millis() - last_check > 500) {
+    last_check = millis();
+    if (!i2cScanForAddress(0x18)) {
+      uart->println("[TCA9534] Lost connection, reinitializing...");
+      ioex.attach(Wire);
+      ioex.setDeviceAddress(0x18);
+      ioex.config(1, TCA9534::Config::OUT);
+      ioex.config(2, TCA9534::Config::OUT);
+      ioex_ready = true;
+    }
+  }
+
   // print_psram_clk();
   lv_timer_handler(); /* let the GUI do its work */
   delay(1);
-  if (terminal_screen_active)
-  {
-    while (uart->available())
-    {
-      char c = uart->read();
-      if (c == '\n')
-      {
-        // wyświetl otrzymany tekst
-        lv_textarea_add_text(ui_output, "< ");
-        lv_textarea_add_text(ui_output, serialBuffer.c_str());
-        lv_textarea_add_text(ui_output, "\n");
-        serialBuffer = "";
-      }
-      else
-      {
-        serialBuffer += c;
-      }
-    }
+  // Check if the screen was touched
+ static bool screenDimmed = false;
+
+if (millis() - lastTouchTime > dimTime) {
+  if (!screenDimmed) {
+    if (ioex_ready) ioex.output(1, TCA9534::Level::L);
+    uart->println("Screen dimmed due to inactivity");
+    screenDimmed = true;
   }
+} else {
+  if (screenDimmed) {
+    if (ioex_ready) ioex.output(1, TCA9534::Level::H);
+    uart->println("Screen brightened due to touch");
+    screenDimmed = false;
+  }
+}
+
 }
